@@ -145,7 +145,7 @@ esac
 
 # Show macOS notification with tab title as subtitle (click to activate iTerm2 and select tab)
 if [ -n "$TAB_NUM" ]; then
-    EXECUTE_CMD="osascript -e 'tell application \"iTerm2\" to activate' -e 'tell application \"iTerm2\" to tell current window to select tab ${TAB_NUM}'"
+    EXECUTE_CMD="osascript -e 'tell application \"iTerm\" to activate' -e 'tell application \"iTerm\" to tell current window to select tab ${TAB_NUM}'"
     terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -execute "$EXECUTE_CMD"
 elif [ -n "$TAB_TITLE" ]; then
     terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -activate com.googlecode.iterm2
