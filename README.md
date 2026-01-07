@@ -211,14 +211,6 @@ export CLAUDE_NOTIFY_SOUND_PERMISSION="Hero"     # For permission requests (defa
 
 Available sounds are in `/System/Library/Sounds/`.
 
-### Use a different terminal
-
-Replace `com.googlecode.iterm2` with your terminal's bundle identifier and adjust the AppleScript accordingly.
-
-## Known Limitations
-
-- **Tab identification only works with iTerm2** - Other terminals don't provide session IDs
-
 ## License
 
 MIT
