@@ -98,7 +98,7 @@ $CONTEXT"
             -d "{
                 \"contents\": [{\"parts\": [{\"text\": $ESCAPED_PROMPT}]}],
                 \"generationConfig\": {\"maxOutputTokens\": 50}
-            }" 2>/dev/null | jq -r '.candidates[0].content.parts[0].text // empty' | head -1)
+            }" 2>/dev/null | jq -r '.candidates[0].content.parts[0].text // empty' | tr '\n' ' ' | sed 's/^[[:space:]]*//' | cut -c1-50)
     elif [ -n "$OPENAI_API_KEY" ]; then
         AI_MESSAGE=$(curl -s -m 5 https://api.openai.com/v1/chat/completions \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
