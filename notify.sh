@@ -3,8 +3,8 @@
 # https://github.com/hatayama/claude-code-notify
 #
 # Features:
-# - Tab number display (iTerm2 only)
-# - Click to focus the originating tab
+# - Tab title display (iTerm2 only)
+# - Click to focus the originating tab (uses session UUID for reliable targeting)
 # - Non-blocking background execution
 # - AI-generated contextual messages (optional, requires GEMINI_API_KEY or OPENAI_API_KEY)
 #
@@ -28,31 +28,36 @@ HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 
-# Get tab info from TERM_SESSION_ID (iTerm2)
-get_tab_info() {
+# Get session UUID from TERM_SESSION_ID (iTerm2)
+get_session_uuid() {
     # iTerm2: TERM_SESSION_ID format is "w0t1p0:UUID" (window, tab, pane)
     if [ -n "$TERM_SESSION_ID" ]; then
-        SESSION_INFO=$(echo "$TERM_SESSION_ID" | cut -d':' -f1)
-        TAB_NUM=$(echo "$SESSION_INFO" | sed 's/.*t\([0-9]*\).*/\1/')
-        TAB_NUM=$((TAB_NUM + 1))
-        echo "*** ${TAB_NUM} ***"
-        return
-    fi
-
-    echo ""
-}
-
-# Get tab number for iTerm2 tab selection
-get_tab_num() {
-    if [ -n "$TERM_SESSION_ID" ]; then
-        SESSION_INFO=$(echo "$TERM_SESSION_ID" | cut -d':' -f1)
-        TAB_NUM=$(echo "$SESSION_INFO" | sed 's/.*t\([0-9]*\).*/\1/')
-        echo $((TAB_NUM + 1))
+        echo "$TERM_SESSION_ID" | cut -d':' -f2
     fi
 }
 
-TAB_TITLE=$(get_tab_info)
-TAB_NUM=$(get_tab_num)
+# Get tab title via AppleScript using session UUID
+get_tab_title() {
+    SESSION_UUID=$(get_session_uuid)
+    if [ -n "$SESSION_UUID" ]; then
+        osascript -e "
+            tell application \"iTerm2\"
+                repeat with aWindow in windows
+                    repeat with aTab in tabs of aWindow
+                        repeat with aSession in sessions of aTab
+                            if unique id of aSession is \"$SESSION_UUID\" then
+                                return name of aSession
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell
+        " 2>/dev/null
+    fi
+}
+
+SESSION_UUID=$(get_session_uuid)
+TAB_TITLE=$(get_tab_title)
 
 # Generate AI message for Stop event (optional)
 # Supports Gemini (preferred) and OpenAI APIs
@@ -143,9 +148,23 @@ case "$HOOK_EVENT" in
         ;;
 esac
 
-# Show macOS notification with tab title as subtitle (click to activate iTerm2 and select tab)
-if [ -n "$TAB_NUM" ]; then
-    EXECUTE_CMD="osascript -e 'tell application \"iTerm\" to activate' -e 'tell application \"iTerm\" to tell current window to select tab ${TAB_NUM}'"
+# Show macOS notification with tab title as subtitle (click to activate iTerm2 and select session by UUID)
+if [ -n "$SESSION_UUID" ]; then
+    EXECUTE_CMD="osascript -e 'tell application \"iTerm2\"
+        activate
+        repeat with aWindow in windows
+            repeat with aTab in tabs of aWindow
+                repeat with aSession in sessions of aTab
+                    if unique id of aSession is \"$SESSION_UUID\" then
+                        select aWindow
+                        select aTab
+                        select aSession
+                        return
+                    end if
+                end repeat
+            end repeat
+        end repeat
+    end tell'"
     terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -execute "$EXECUTE_CMD"
 elif [ -n "$TAB_TITLE" ]; then
     terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -activate com.googlecode.iterm2
