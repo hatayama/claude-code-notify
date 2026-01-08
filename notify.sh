@@ -148,14 +148,7 @@ case "$HOOK_EVENT" in
         ;;
 esac
 
-# Format title with tab name
-if [ -n "$TAB_TITLE" ]; then
-    TITLE="Claude Code ** ${TAB_TITLE} **"
-else
-    TITLE="Claude Code"
-fi
-
-# Show macOS notification (click to activate iTerm2 and select session by UUID)
+# Show macOS notification with tab title as subtitle (click to activate iTerm2 and select session by UUID)
 if [ -n "$SESSION_UUID" ]; then
     EXECUTE_CMD="osascript -e 'tell application \"iTerm2\"
         activate
@@ -172,9 +165,11 @@ if [ -n "$SESSION_UUID" ]; then
             end repeat
         end repeat
     end tell'"
-    terminal-notifier -message "$MESSAGE" -title "$TITLE" -sound "$SOUND" -execute "$EXECUTE_CMD"
+    terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -execute "$EXECUTE_CMD"
+elif [ -n "$TAB_TITLE" ]; then
+    terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -activate com.googlecode.iterm2
 else
-    terminal-notifier -message "$MESSAGE" -title "$TITLE" -sound "$SOUND" -activate com.googlecode.iterm2
+    terminal-notifier -message "$MESSAGE" -title "Claude Code" -sound "$SOUND" -activate com.googlecode.iterm2
 fi
 
 ) &
