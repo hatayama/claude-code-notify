@@ -91,11 +91,20 @@ generate_ai_message() {
         return
     fi
 
-    if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
-        return
+    # Try to read from Claude's direct output file first (most recent)
+    LAST_RESPONSE_FILE="/tmp/claude/last_response.txt"
+    if [ -f "$LAST_RESPONSE_FILE" ]; then
+        CONTEXT=$(cat "$LAST_RESPONSE_FILE" | head -c 500)
+        rm -f "$LAST_RESPONSE_FILE"
     fi
 
-    CONTEXT=$(tail -10 "$TRANSCRIPT_PATH" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 500)
+    # Fallback to transcript if no direct output
+    if [ -z "$CONTEXT" ]; then
+        if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+            return
+        fi
+        CONTEXT=$(tail -10 "$TRANSCRIPT_PATH" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 500)
+    fi
 
     if [ -z "$CONTEXT" ]; then
         return
