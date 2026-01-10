@@ -52,7 +52,7 @@ get_tab_title() {
 # Requires: HOOK_EVENT, INPUT_MESSAGE, TOOL_NAME to be set
 get_default_message() {
     case "$HOOK_EVENT" in
-        "Stop") echo "Task completed" ;;
+        "Stop") echo "Response complete" ;;
         "SubagentStop") echo "Subagent completed" ;;
         "Notification") echo "${INPUT_MESSAGE:-Notification}" ;;
         "PermissionRequest") echo "Permission: ${TOOL_NAME:-required}" ;;
