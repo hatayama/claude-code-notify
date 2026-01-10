@@ -21,64 +21,83 @@ INPUT=$(cat)
 # Run everything else in background to not block Claude Code
 (
 
-# Extract fields using jq
-MESSAGE=$(echo "$INPUT" | jq -r '.message // empty')
-NOTIFICATION_TYPE=$(echo "$INPUT" | jq -r '.notification_type // empty')
-HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+# Extract fields using jq (single call for efficiency)
+eval "$(echo "$INPUT" | jq -r '
+    @sh "INPUT_MESSAGE=\(.message // "")",
+    @sh "NOTIFICATION_TYPE=\(.notification_type // "")",
+    @sh "HOOK_EVENT=\(.hook_event_name // "")",
+    @sh "TOOL_NAME=\(.tool_name // "")",
+    @sh "TRANSCRIPT_PATH=\(.transcript_path // "")"
+')"
 
-# Get session UUID from TERM_SESSION_ID (iTerm2)
-get_session_uuid() {
-    # iTerm2: TERM_SESSION_ID format is "w0t1p0:UUID" (window, tab, pane)
-    if [ -n "$TERM_SESSION_ID" ]; then
-        echo "$TERM_SESSION_ID" | cut -d':' -f2
-    fi
-}
+# Extract session UUID from TERM_SESSION_ID (iTerm2 format: "w0t1p0:UUID")
+SESSION_UUID=""
+if [ -n "$TERM_SESSION_ID" ]; then
+    SESSION_UUID=$(echo "$TERM_SESSION_ID" | cut -d':' -f2)
+fi
 
 # Get tab title via AppleScript using session UUID
-get_tab_title() {
-    SESSION_UUID=$(get_session_uuid)
-    if [ -n "$SESSION_UUID" ]; then
-        osascript -e "
-            tell application \"iTerm2\"
-                repeat with aWindow in windows
-                    repeat with aTab in tabs of aWindow
-                        repeat with aSession in sessions of aTab
-                            if unique id of aSession is \"$SESSION_UUID\" then
-                                return name of aSession
-                            end if
-                        end repeat
+TAB_TITLE=""
+if [ -n "$SESSION_UUID" ]; then
+    TAB_TITLE=$(osascript -e "
+        tell application \"iTerm2\"
+            repeat with aWindow in windows
+                repeat with aTab in tabs of aWindow
+                    repeat with aSession in sessions of aTab
+                        if unique id of aSession is \"$SESSION_UUID\" then
+                            return name of aSession
+                        end if
                     end repeat
                 end repeat
-            end tell
-        " 2>/dev/null
-    fi
+            end repeat
+        end tell
+    " 2>/dev/null)
+fi
+
+# Check if AI message should be used for this event
+# Configure via CLAUDE_NOTIFY_AI_EVENTS environment variable (comma-separated)
+# Default: Stop only
+should_use_ai_message() {
+    EVENT="$1"
+    EVENTS="${CLAUDE_NOTIFY_AI_EVENTS:-Stop}"
+    case ",$EVENTS," in
+        *",$EVENT,"*) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
-SESSION_UUID=$(get_session_uuid)
-TAB_TITLE=$(get_tab_title)
+# Get default message for each event type
+get_default_message() {
+    case "$HOOK_EVENT" in
+        "Stop") echo "Task completed" ;;
+        "SubagentStop") echo "Subagent completed" ;;
+        "Notification") echo "${INPUT_MESSAGE:-Notification}" ;;
+        "PermissionRequest") echo "Permission: ${TOOL_NAME:-required}" ;;
+        "PreToolUse") echo "Tool: ${TOOL_NAME}" ;;
+        "PostToolUse") echo "Tool done: ${TOOL_NAME}" ;;
+        "UserPromptSubmit") echo "Prompt submitted" ;;
+        "PreCompact") echo "Compacting..." ;;
+        "SessionStart") echo "Session started" ;;
+        "SessionEnd") echo "Session ended" ;;
+        *) echo "Claude Code notification" ;;
+    esac
+}
 
-# Generate AI message for Stop event (optional)
+# Generate AI message (optional)
 # Supports Gemini (preferred) and OpenAI APIs
+# Returns empty string if AI generation fails (caller should fallback to default)
 generate_ai_message() {
-    # If no API key, return default message
     if [ -z "$GEMINI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
-        echo "Task completed"
         return
     fi
 
-    TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
-
     if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
-        echo "Task completed"
         return
     fi
 
     CONTEXT=$(tail -10 "$TRANSCRIPT_PATH" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 500)
 
     if [ -z "$CONTEXT" ]; then
-        echo "Task completed"
         return
     fi
 
@@ -112,16 +131,16 @@ $CONTEXT"
 
     if [ -n "$AI_MESSAGE" ]; then
         echo "$AI_MESSAGE"
-    else
-        echo "Task completed"
     fi
 }
 
-# Determine sound and message based on event type
+# Determine sound based on event type
 case "$HOOK_EVENT" in
-    "Stop")
+    "Stop"|"SubagentStop")
         SOUND="${CLAUDE_NOTIFY_SOUND_STOP:-Funk}"
-        MESSAGE=$(generate_ai_message)
+        ;;
+    "PermissionRequest")
+        SOUND="${CLAUDE_NOTIFY_SOUND_PERMISSION:-Hero}"
         ;;
     "Notification")
         case "$NOTIFICATION_TYPE" in
@@ -132,21 +151,20 @@ case "$HOOK_EVENT" in
                 SOUND="${CLAUDE_NOTIFY_SOUND_NOTIFICATION:-Submarine}"
                 ;;
         esac
-        MESSAGE="${MESSAGE:-Notification}"
-        ;;
-    "PermissionRequest")
-        SOUND="${CLAUDE_NOTIFY_SOUND_PERMISSION:-Hero}"
-        if [ -n "$TOOL_NAME" ]; then
-            MESSAGE="Permission: ${TOOL_NAME}"
-        else
-            MESSAGE="${MESSAGE:-Permission required}"
-        fi
         ;;
     *)
-        SOUND="${CLAUDE_NOTIFY_SOUND_STOP:-Funk}"
-        MESSAGE="${MESSAGE:-Claude Code notification}"
+        SOUND="${CLAUDE_NOTIFY_SOUND_DEFAULT:-default}"
         ;;
 esac
+
+# Determine notification message (AI-generated or default)
+NOTIFY_MESSAGE=""
+if should_use_ai_message "$HOOK_EVENT"; then
+    NOTIFY_MESSAGE=$(generate_ai_message)
+fi
+if [ -z "$NOTIFY_MESSAGE" ]; then
+    NOTIFY_MESSAGE=$(get_default_message)
+fi
 
 # Show macOS notification with tab title as subtitle (click to activate iTerm2 and select session by UUID)
 if [ -n "$SESSION_UUID" ]; then
@@ -165,11 +183,11 @@ if [ -n "$SESSION_UUID" ]; then
             end repeat
         end repeat
     end tell'"
-    terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -execute "$EXECUTE_CMD"
+    terminal-notifier -message "$NOTIFY_MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -execute "$EXECUTE_CMD"
 elif [ -n "$TAB_TITLE" ]; then
-    terminal-notifier -message "$MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -activate com.googlecode.iterm2
+    terminal-notifier -message "$NOTIFY_MESSAGE" -title "Claude Code" -subtitle "$TAB_TITLE" -sound "$SOUND" -activate com.googlecode.iterm2
 else
-    terminal-notifier -message "$MESSAGE" -title "Claude Code" -sound "$SOUND" -activate com.googlecode.iterm2
+    terminal-notifier -message "$NOTIFY_MESSAGE" -title "Claude Code" -sound "$SOUND" -activate com.googlecode.iterm2
 fi
 
 ) &
