@@ -6,10 +6,18 @@ Inspired by [Boris Cherny's workflow](https://x.com/bcherny/status/2007179833990
 
 ## Features
 
-- **Tab identification** - Shows which iTerm2 tab the notification is from (e.g., "*** 2 ***")
-- **Click to focus** - Clicking the notification activates iTerm2 and switches to the originating tab
+- **Tab title display** - Shows actual iTerm2 tab title in notifications
+- **Click to focus** - Clicking the notification activates iTerm2 and switches to the originating tab (UUID-based)
 - **Non-blocking** - Runs in background so Claude Code doesn't wait for the notification
-- **AI-generated messages (optional)** - Uses Gemini or OpenAI API to generate contextual completion messages
+- **AI-generated messages (optional)** - Uses Claude's direct output or Gemini/OpenAI API for contextual messages
+
+## File Structure
+
+| File | Purpose |
+|------|---------|
+| `notify.sh` | Core notification script (for most users) |
+| `notify-ai.sh` | AI-enhanced version with contextual messages |
+| `notify-common.sh` | Shared utilities (sourced by other scripts) |
 
 ## Requirements
 
@@ -17,7 +25,9 @@ Inspired by [Boris Cherny's workflow](https://x.com/bcherny/status/2007179833990
 - [iTerm2](https://iterm2.com/) (for tab identification feature)
 - [terminal-notifier](https://github.com/julienXX/terminal-notifier)
 - [jq](https://stedolan.github.io/jq/)
-- Gemini API key or OpenAI API key (optional, for AI-generated messages)
+
+**For AI features (notify-ai.sh only):**
+- Gemini API key or OpenAI API key (optional)
 
 ## Installation
 
@@ -62,17 +72,6 @@ Add the following to the `hooks` section in your `~/.claude/settings.json`.
       }
     ]
   }
-],
-"PermissionRequest": [
-  {
-    "matcher": "",
-    "hooks": [
-      {
-        "type": "command",
-        "command": "/path/to/claude-code-notify/notify.sh"
-      }
-    ]
-  }
 ]
 ```
 
@@ -103,23 +102,21 @@ Add the following to the `hooks` section in your `~/.claude/settings.json`.
           }
         ]
       }
-    ],
-    "PermissionRequest": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/claude-code-notify/notify.sh"
-          }
-        ]
-      }
     ]
   }
 }
 ```
 
 </details>
+
+## Default Messages
+
+| Event | Message |
+|-------|---------|
+| Stop | Response complete |
+| SubagentStop | Subagent completed |
+| Notification | (message from Claude Code) |
+| PermissionRequest | Permission: {tool name} |
 
 ## How It Works
 
@@ -131,9 +128,7 @@ iTerm2 sets the `TERM_SESSION_ID` environment variable for each session:
 TERM_SESSION_ID=w0t2p0:UUID
 ```
 
-Format: `w{window}t{tab}p{pane}:{UUID}`
-
-This allows the script to identify which tab triggered the notification, even for background tabs.
+The script uses the UUID to reliably identify and select the correct tab, even when tabs are reordered.
 
 **Note**: Ghostty does not support this feature. See [ghostty-org/ghostty#9084](https://github.com/ghostty-org/ghostty/discussions/9084).
 
@@ -142,13 +137,34 @@ This allows the script to identify which tab triggered the notification, even fo
 Uses AppleScript via `terminal-notifier -execute` to:
 
 1. Activate iTerm2
-2. Select the specific tab that triggered the notification
+2. Find the session by UUID
+3. Select the window, tab, and session
 
 ## Customization
 
-### Auto-number tab titles (recommended)
+### Show hook event prefix
 
-Add this to your `~/.zshrc` to automatically set tab titles to their tab number (like Boris Cherny's workflow):
+Add `[Stop]`, `[Notification]`, etc. prefix to messages:
+
+```bash
+# ~/.zshrc
+export CLAUDE_NOTIFY_SHOW_PREFIX=true
+```
+
+### Change notification sounds
+
+```bash
+# ~/.zshrc
+export CLAUDE_NOTIFY_SOUND_STOP="Funk"           # When Claude stops (default: Funk)
+export CLAUDE_NOTIFY_SOUND_NOTIFICATION="Submarine"  # For notifications (default: Submarine)
+export CLAUDE_NOTIFY_SOUND_PERMISSION="Hero"     # For permission requests (default: Hero)
+```
+
+Available sounds are in `/System/Library/Sounds/`.
+
+### Auto-number tab titles
+
+Add this to your `~/.zshrc` to automatically set tab titles to their tab number:
 
 ```bash
 # iTerm2: Auto-set tab title to tab number
@@ -162,7 +178,7 @@ fi
 **Important**: Enable "Applications in terminal may change the title" in iTerm2:
 - Settings → Profiles → General → Title → ☑️ Applications in terminal may change the title
 
-**Also**: Disable Claude Code's automatic title updates by adding to your `~/.claude/settings.json`:
+**Also**: Disable Claude Code's automatic title updates:
 
 ```json
 {
@@ -172,11 +188,19 @@ fi
 }
 ```
 
-### AI-generated messages (optional)
+## AI-Enhanced Notifications (notify-ai.sh)
 
-By default, the script shows simple messages like "Task completed". If you want AI-generated contextual messages:
+For power users who want contextual AI-generated messages, use `notify-ai.sh` instead of `notify.sh`.
 
-1. Set up an API key (Gemini recommended for speed):
+### Setup
+
+1. Update your hooks to use `notify-ai.sh`:
+
+```json
+"command": "/path/to/claude-code-notify/notify-ai.sh"
+```
+
+2. (Optional) Set up an API key for fallback:
 
 ```bash
 # ~/.zshrc
@@ -189,27 +213,24 @@ export OPENAI_API_KEY="your-api-key-here"
 
 Get your Gemini API key at [Google AI Studio](https://aistudio.google.com/).
 
-2. Optionally customize the prompt:
+### How it works
+
+Message priority:
+1. **Direct output** - Reads from `/tmp/claude/last_response.txt` (if Claude writes to it)
+2. **AI fallback** - Calls Gemini/OpenAI API to generate a summary from transcript
+3. **Default message** - Falls back to standard messages
+
+### Configuration
 
 ```bash
 # ~/.zshrc
-export CLAUDE_NOTIFY_AI_PROMPT="Generate a short completion message in pirate speak (max 20 chars). Work content:"
+
+# Which events should use AI messages (comma-separated)
+export CLAUDE_NOTIFY_AI_EVENTS="Stop,Notification"
+
+# Custom AI prompt (optional)
+export CLAUDE_NOTIFY_AI_PROMPT="Generate a short completion message (max 20 chars). Work content:"
 ```
-
-The script reads the transcript, extracts recent context, and calls the API to generate a short completion message. If both keys are set, Gemini is used (faster response).
-
-### Change notification sounds
-
-Set environment variables to customize sounds for each event type:
-
-```bash
-# ~/.zshrc
-export CLAUDE_NOTIFY_SOUND_STOP="Funk"           # When Claude stops (default: Funk)
-export CLAUDE_NOTIFY_SOUND_NOTIFICATION="Submarine"  # For notifications (default: Submarine)
-export CLAUDE_NOTIFY_SOUND_PERMISSION="Hero"     # For permission requests (default: Hero)
-```
-
-Available sounds are in `/System/Library/Sounds/`.
 
 ## License
 
