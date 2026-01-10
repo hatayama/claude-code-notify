@@ -112,12 +112,14 @@ $CONTEXT"
 
     # Try Gemini first (faster), then OpenAI
     if [ -n "$GEMINI_API_KEY" ]; then
-        AI_MESSAGE=$(curl -s -m 5 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$GEMINI_API_KEY" \
+        GEMINI_RESPONSE=$(curl -s -m 5 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
             -d "{
                 \"contents\": [{\"parts\": [{\"text\": $ESCAPED_PROMPT}]}],
                 \"generationConfig\": {\"maxOutputTokens\": 50}
-            }" 2>/dev/null | jq -r '.candidates[0].content.parts[0].text // empty' | tr '\n' ' ' | sed 's/^[[:space:]]*//' | cut -c1-50)
+            }" 2>/dev/null)
+        RAW_AI=$(echo "$GEMINI_RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+        AI_MESSAGE=$(printf '%s' "$RAW_AI" | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | cut -c1-50)
     elif [ -n "$OPENAI_API_KEY" ]; then
         AI_MESSAGE=$(curl -s -m 5 https://api.openai.com/v1/chat/completions \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
@@ -164,6 +166,11 @@ if should_use_ai_message "$HOOK_EVENT"; then
 fi
 if [ -z "$NOTIFY_MESSAGE" ]; then
     NOTIFY_MESSAGE=$(get_default_message)
+fi
+
+# Add hook event prefix if enabled (escape '[' for terminal-notifier)
+if [ "${CLAUDE_NOTIFY_SHOW_PREFIX:-false}" = "true" ]; then
+    NOTIFY_MESSAGE="\\[$HOOK_EVENT] $NOTIFY_MESSAGE"
 fi
 
 # Show macOS notification with tab title as subtitle (click to activate iTerm2 and select session by UUID)
