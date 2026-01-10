@@ -83,34 +83,33 @@ get_default_message() {
     esac
 }
 
-# Generate AI message (optional)
+# Read Claude's direct response file if available
+# Returns the content directly without AI processing
+read_direct_response() {
+    LAST_RESPONSE_FILE="/tmp/claude/last_response.txt"
+    if [ -f "$LAST_RESPONSE_FILE" ]; then
+        cat "$LAST_RESPONSE_FILE" | head -c 100
+        rm -f "$LAST_RESPONSE_FILE"
+    fi
+}
+
+# Generate AI message (fallback when no direct response)
 # Supports Gemini (preferred) and OpenAI APIs
-# Returns empty string if AI generation fails (caller should fallback to default)
 generate_ai_message() {
     if [ -z "$GEMINI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
         return
     fi
 
-    # Try to read from Claude's direct output file first (most recent)
-    LAST_RESPONSE_FILE="/tmp/claude/last_response.txt"
-    if [ -f "$LAST_RESPONSE_FILE" ]; then
-        CONTEXT=$(cat "$LAST_RESPONSE_FILE" | head -c 500)
-        rm -f "$LAST_RESPONSE_FILE"
+    if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+        return
     fi
 
-    # Fallback to transcript if no direct output
-    if [ -z "$CONTEXT" ]; then
-        if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
-            return
-        fi
-        CONTEXT=$(tail -10 "$TRANSCRIPT_PATH" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 500)
-    fi
+    CONTEXT=$(tail -10 "$TRANSCRIPT_PATH" | jq -r '.message.content[0].text // empty' 2>/dev/null | head -c 500)
 
     if [ -z "$CONTEXT" ]; then
         return
     fi
 
-    # Customize via CLAUDE_NOTIFY_AI_PROMPT environment variable
     DEFAULT_PROMPT="Based on the following work content, generate a short completion notification message in one line (max 20 chars). No emoji. No explanation, just the message.
 
 Work content:"
@@ -119,7 +118,6 @@ $CONTEXT"
 
     ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs .)
 
-    # Try Gemini first (faster), then OpenAI
     if [ -n "$GEMINI_API_KEY" ]; then
         GEMINI_RESPONSE=$(curl -s -m 5 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
@@ -168,9 +166,11 @@ case "$HOOK_EVENT" in
         ;;
 esac
 
-# Determine notification message (AI-generated or default)
+# Determine notification message
+# Priority: 1) Direct response file, 2) AI-generated, 3) Default
 NOTIFY_MESSAGE=""
-if should_use_ai_message "$HOOK_EVENT"; then
+NOTIFY_MESSAGE=$(read_direct_response)
+if [ -z "$NOTIFY_MESSAGE" ] && should_use_ai_message "$HOOK_EVENT"; then
     NOTIFY_MESSAGE=$(generate_ai_message)
 fi
 if [ -z "$NOTIFY_MESSAGE" ]; then
