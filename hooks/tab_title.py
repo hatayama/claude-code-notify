@@ -18,9 +18,9 @@ import sys
 from pathlib import Path
 
 PREFIXES: dict[str, str] = {
-    "on": "⚡",
-    "done": "✅",
-    "ask": "❓",
+    "on": os.environ.get("CLAUDE_NOTIFY_PREFIX_ON", "⚡"),
+    "done": os.environ.get("CLAUDE_NOTIFY_PREFIX_DONE", "✅"),
+    "ask": os.environ.get("CLAUDE_NOTIFY_PREFIX_ASK", "❓"),
 }
 
 

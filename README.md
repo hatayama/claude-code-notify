@@ -55,6 +55,16 @@ uninstall_claude_code_notify
 
 ## Customization
 
+### Tab title prefixes
+
+Override prefixes via environment variables in your `~/.zshrc`:
+
+```bash
+export CLAUDE_NOTIFY_PREFIX_ON="🔥"      # Processing (default: ⚡)
+export CLAUDE_NOTIFY_PREFIX_DONE="🎉"    # Complete (default: ✅)
+export CLAUDE_NOTIFY_PREFIX_ASK="🔔"     # Permission (default: ❓)
+```
+
 ### Notification sounds
 
 Override sounds via environment variables in your `~/.zshrc`:
