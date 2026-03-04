@@ -88,11 +88,42 @@ if [ -z "$ARG_ACTIVATE" ] && [ -n "$TERM_PROGRAM" ]; then
     esac
 fi
 
+# Get iTerm2 session UUID for tab-level focus
+SESSION_UUID=""
+if [ -n "$TERM_SESSION_ID" ]; then
+    SESSION_UUID=$(echo "$TERM_SESSION_ID" | cut -d':' -f2)
+fi
+
 if command -v terminal-notifier >/dev/null 2>&1; then
-    NOTIFIER_ARGS="-title \"$TITLE\" -message \"$MESSAGE\" -sound \"$SOUND\""
-    [ -n "$DIR_NAME" ] && NOTIFIER_ARGS="$NOTIFIER_ARGS -subtitle \"$DIR_NAME\""
-    [ -n "$ARG_ACTIVATE" ] && NOTIFIER_ARGS="$NOTIFIER_ARGS -activate \"$ARG_ACTIVATE\""
-    eval "terminal-notifier $NOTIFIER_ARGS"
+    if [ -n "$SESSION_UUID" ]; then
+        # iTerm2: click notification to focus the exact tab via session UUID
+        EXECUTE_CMD="osascript -e 'tell application \"iTerm2\"
+            activate
+            repeat with aWindow in windows
+                repeat with aTab in tabs of aWindow
+                    repeat with aSession in sessions of aTab
+                        if unique id of aSession is \"$SESSION_UUID\" then
+                            select aWindow
+                            select aTab
+                            select aSession
+                            return
+                        end if
+                    end repeat
+                end repeat
+            end repeat
+        end tell'"
+        if [ -n "$DIR_NAME" ]; then
+            terminal-notifier -title "$TITLE" -message "$MESSAGE" -sound "$SOUND" -subtitle "$DIR_NAME" -execute "$EXECUTE_CMD"
+        else
+            terminal-notifier -title "$TITLE" -message "$MESSAGE" -sound "$SOUND" -execute "$EXECUTE_CMD"
+        fi
+    else
+        if [ -n "$DIR_NAME" ]; then
+            terminal-notifier -title "$TITLE" -message "$MESSAGE" -sound "$SOUND" -subtitle "$DIR_NAME" ${ARG_ACTIVATE:+-activate "$ARG_ACTIVATE"}
+        else
+            terminal-notifier -title "$TITLE" -message "$MESSAGE" -sound "$SOUND" ${ARG_ACTIVATE:+-activate "$ARG_ACTIVATE"}
+        fi
+    fi
 else
     if [ -n "$DIR_NAME" ]; then
         osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\" subtitle \"$DIR_NAME\" sound name \"$SOUND\"" 2>/dev/null || true
