@@ -1,13 +1,15 @@
 #!/bin/sh
 # Claude Code desktop notification script (macOS)
 # Reads JSON context from stdin and displays notifications with event-specific sounds.
-# Zero external dependencies - uses only osascript (macOS built-in).
+# Uses terminal-notifier if available (click-to-focus support),
+# falls back to osascript (macOS built-in). No hard dependencies.
 # Runs notification in background to avoid blocking Claude Code.
 #
 # Usage: notify.sh [options]
 #   -t, --title TITLE      Override notification title
 #   -m, --message MESSAGE  Override notification message
 #   -s, --sound SOUND      Override notification sound
+#   -a, --activate ID      App bundle ID to activate on click (auto-detected if omitted)
 #
 # Environment variables:
 #   CLAUDE_NOTIFY_SOUND_STOP         Sound for Stop events (default: Funk)
@@ -18,13 +20,15 @@
 ARG_TITLE=""
 ARG_MESSAGE=""
 ARG_SOUND=""
+ARG_ACTIVATE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        -t|--title)   ARG_TITLE="$2";   shift 2 ;;
-        -m|--message) ARG_MESSAGE="$2"; shift 2 ;;
-        -s|--sound)   ARG_SOUND="$2";   shift 2 ;;
-        *)            shift ;;
+        -t|--title)    ARG_TITLE="$2";    shift 2 ;;
+        -m|--message)  ARG_MESSAGE="$2";  shift 2 ;;
+        -s|--sound)    ARG_SOUND="$2";    shift 2 ;;
+        -a|--activate) ARG_ACTIVATE="$2"; shift 2 ;;
+        *)             shift ;;
     esac
 done
 
@@ -74,10 +78,27 @@ esac
 [ -n "$ARG_MESSAGE" ] && MESSAGE="$ARG_MESSAGE"
 [ -n "$ARG_SOUND" ] && SOUND="$ARG_SOUND"
 
-if [ -n "$DIR_NAME" ]; then
-    osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\" subtitle \"$DIR_NAME\" sound name \"$SOUND\"" 2>/dev/null || true
+# Auto-detect terminal app for click-to-activate
+if [ -z "$ARG_ACTIVATE" ] && [ -n "$TERM_PROGRAM" ]; then
+    case "$TERM_PROGRAM" in
+        ghostty)       ARG_ACTIVATE="com.mitchellh.ghostty" ;;
+        iTerm.app)     ARG_ACTIVATE="com.googlecode.iterm2" ;;
+        Apple_Terminal) ARG_ACTIVATE="com.apple.Terminal" ;;
+        vscode)        ARG_ACTIVATE="com.microsoft.VSCode" ;;
+    esac
+fi
+
+if command -v terminal-notifier >/dev/null 2>&1; then
+    NOTIFIER_ARGS="-title \"$TITLE\" -message \"$MESSAGE\" -sound \"$SOUND\""
+    [ -n "$DIR_NAME" ] && NOTIFIER_ARGS="$NOTIFIER_ARGS -subtitle \"$DIR_NAME\""
+    [ -n "$ARG_ACTIVATE" ] && NOTIFIER_ARGS="$NOTIFIER_ARGS -activate \"$ARG_ACTIVATE\""
+    eval "terminal-notifier $NOTIFIER_ARGS"
 else
-    osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\" sound name \"$SOUND\"" 2>/dev/null || true
+    if [ -n "$DIR_NAME" ]; then
+        osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\" subtitle \"$DIR_NAME\" sound name \"$SOUND\"" 2>/dev/null || true
+    else
+        osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\" sound name \"$SOUND\"" 2>/dev/null || true
+    fi
 fi
 
 ) &
