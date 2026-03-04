@@ -6,13 +6,11 @@ Runs in a temporary HOME to avoid affecting the real environment.
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 SCRIPT_DIR: Path = Path(__file__).resolve().parent
 
@@ -218,71 +216,6 @@ class TestIdempotentUninstall(InstallTestBase):
 
         self.assertEqual(result1.returncode, 0)
         self.assertEqual(result2.returncode, 0)
-
-
-class TestShToPhMigration(InstallTestBase):
-    """Test migration from old .sh files to new .py files."""
-
-    def test_removes_old_sh_files(self) -> None:
-        self.hooks_dir.mkdir(parents=True, exist_ok=True)
-        (self.hooks_dir / "tab-title.sh").write_text("#!/bin/sh\n")
-        (self.hooks_dir / "notify.sh").write_text("#!/bin/sh\n")
-
-        self.run_install()
-
-        self.assertFalse((self.hooks_dir / "tab-title.sh").exists())
-        self.assertFalse((self.hooks_dir / "notify.sh").exists())
-        self.assertTrue((self.hooks_dir / "tab_title.py").exists())
-        self.assertTrue((self.hooks_dir / "notify.py").exists())
-
-    def test_migrates_sh_entries_in_settings(self) -> None:
-        self.settings_file.parent.mkdir(parents=True, exist_ok=True)
-        old_settings: dict = {
-            "env": {"CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"},
-            "hooks": {
-                "UserPromptSubmit": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "command", "command": "~/.claude/hooks/tab-title.sh on"},
-                        ],
-                    },
-                ],
-                "Stop": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "command", "command": "~/.claude/hooks/tab-title.sh done"},
-                            {"type": "command", "command": "~/.claude/hooks/notify.sh"},
-                        ],
-                    },
-                ],
-            },
-        }
-        with open(self.settings_file, "w") as f:
-            json.dump(old_settings, f)
-
-        self.run_install()
-
-        content: str = self.settings_file.read_text()
-        self.assertNotIn("tab-title.sh", content)
-        self.assertNotIn("notify.sh", content)
-        self.assertIn("tab_title.py on", content)
-        self.assertIn("tab_title.py done", content)
-        self.assertIn("notify.py", content)
-
-    def test_uninstall_removes_both_old_and_new(self) -> None:
-        self.hooks_dir.mkdir(parents=True, exist_ok=True)
-        (self.hooks_dir / "tab-title.sh").write_text("#!/bin/sh\n")
-        (self.hooks_dir / "notify.sh").write_text("#!/bin/sh\n")
-
-        self.run_install()
-        self.run_uninstall()
-
-        self.assertFalse((self.hooks_dir / "tab-title.sh").exists())
-        self.assertFalse((self.hooks_dir / "notify.sh").exists())
-        self.assertFalse((self.hooks_dir / "tab_title.py").exists())
-        self.assertFalse((self.hooks_dir / "notify.py").exists())
 
 
 if __name__ == "__main__":

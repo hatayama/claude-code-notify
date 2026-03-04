@@ -2,7 +2,7 @@
 """Claude Code Notify - Uninstaller.
 
 Removes hook scripts, settings.json entries, CLAUDE_TTY from shell profiles,
-and marker files. Handles both old .sh and new .py hook files.
+and marker files.
 """
 
 import glob
@@ -13,24 +13,17 @@ from pathlib import Path
 HOOKS_DIR: Path = Path.home() / ".claude" / "hooks"
 SETTINGS_FILE: Path = Path.home() / ".claude" / "settings.json"
 
-ALL_HOOK_FILES: list[str] = [
-    "tab_title.py",
-    "notify.py",
-    "tab-title.sh",
-    "notify.sh",
-]
+HOOK_FILES: list[str] = ["tab_title.py", "notify.py"]
 
-OUR_COMMAND_PREFIXES: list[str] = [
+COMMAND_PREFIXES: list[str] = [
     "~/.claude/hooks/tab_title.py",
     "~/.claude/hooks/notify.py",
-    "~/.claude/hooks/tab-title.sh",
-    "~/.claude/hooks/notify.sh",
 ]
 
 
 def remove_hook_files() -> None:
     """Remove hook script files."""
-    for filename in ALL_HOOK_FILES:
+    for filename in HOOK_FILES:
         hook_file: Path = HOOKS_DIR / filename
         if hook_file.exists():
             hook_file.unlink()
@@ -39,7 +32,7 @@ def remove_hook_files() -> None:
 
 def command_is_ours(command: str) -> bool:
     """Check if a command belongs to claude-code-notify."""
-    return any(command.startswith(prefix) for prefix in OUR_COMMAND_PREFIXES)
+    return any(command.startswith(prefix) for prefix in COMMAND_PREFIXES)
 
 
 def clean_settings() -> None:

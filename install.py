@@ -12,7 +12,6 @@ Options:
 """
 
 import argparse
-import glob
 import json
 import os
 import shutil
@@ -25,12 +24,10 @@ SETTINGS_FILE: Path = Path.home() / ".claude" / "settings.json"
 
 HOOK_FILES: list[str] = ["tab_title.py", "notify.py"]
 
-OLD_HOOK_FILES: list[str] = ["tab-title.sh", "notify.sh"]
-
 CLAUDE_TTY_LINE: str = "export CLAUDE_TTY=$(tty)"
 CLAUDE_TTY_COMMENT: str = "# Claude Code Notify - tab title support"
 
-NEW_HOOKS_CONFIG: dict[str, list[dict]] = {
+HOOKS_CONFIG: dict[str, list[dict]] = {
     "UserPromptSubmit": [
         {
             "matcher": "",
@@ -66,12 +63,6 @@ NEW_HOOKS_CONFIG: dict[str, list[dict]] = {
         },
     ],
 }
-
-OLD_COMMAND_PATTERNS: list[str] = [
-    "~/.claude/hooks/tab-title.sh",
-    "~/.claude/hooks/notify.sh",
-]
-
 
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
@@ -110,46 +101,6 @@ def hook_entry_exists(existing_entries: list[dict], new_entry: dict) -> bool:
     return False
 
 
-def command_matches_old_pattern(command: str) -> bool:
-    """Check if a command references old .sh hook files."""
-    return any(command.startswith(pattern) for pattern in OLD_COMMAND_PATTERNS)
-
-
-def migrate_old_hooks_in_settings(settings: dict) -> bool:
-    """Remove old .sh hook entries from settings. Returns True if changes were made."""
-    hooks: dict = settings.get("hooks", {})
-    changed: bool = False
-
-    for event_name in list(hooks.keys()):
-        filtered: list[dict] = []
-        for entry in hooks[event_name]:
-            entry_hooks: list[dict] = entry.get("hooks", [])
-            remaining: list[dict] = [
-                h for h in entry_hooks if not command_matches_old_pattern(h.get("command", ""))
-            ]
-            if remaining:
-                entry["hooks"] = remaining
-                filtered.append(entry)
-            elif entry_hooks:
-                changed = True
-        if filtered:
-            hooks[event_name] = filtered
-        elif event_name in hooks:
-            del hooks[event_name]
-            changed = True
-
-    return changed
-
-
-def remove_old_hook_files() -> None:
-    """Delete old .sh hook files if they exist."""
-    for filename in OLD_HOOK_FILES:
-        old_file: Path = HOOKS_DIR / filename
-        if old_file.exists():
-            old_file.unlink()
-            print(f"  Migrated: removed old {filename}")
-
-
 def merge_settings() -> None:
     """Merge hook configuration into ~/.claude/settings.json (idempotent)."""
     if not SETTINGS_FILE.exists():
@@ -164,13 +115,7 @@ def merge_settings() -> None:
 
     settings["env"]["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
 
-    # Migrate old .sh entries
-    migrated: bool = migrate_old_hooks_in_settings(settings)
-    if migrated:
-        print("  Migrated: removed old .sh hook entries from settings")
-
-    # Add new .py entries
-    for event_name, entries in NEW_HOOKS_CONFIG.items():
+    for event_name, entries in HOOKS_CONFIG.items():
         if event_name not in settings["hooks"]:
             settings["hooks"][event_name] = []
         for new_entry in entries:
@@ -246,7 +191,6 @@ def main() -> None:
 
     install_hook_scripts(source_dir)
     merge_settings()
-    remove_old_hook_files()
     setup_shell_profiles()
     print_completion(source_dir)
 
