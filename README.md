@@ -1,6 +1,6 @@
 # Claude Code Notify
 
-Tab title indicators and desktop notifications for [Claude Code](https://docs.claude.ai/en/docs/claude-code) on macOS.
+Tab title indicators and desktop notifications for [Claude Code](https://docs.claude.ai/en/docs/claude-code) on macOS + iTerm2.
 
 Works out of the box on macOS — no additional installation required (`osascript`, `python3` are pre-installed).
 Optionally uses [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) for click-to-focus support.
@@ -50,8 +50,18 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notif
 ## Uninstall
 
 ```bash
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notify/main/uninstall.sh)"
+```
+
+<details>
+<summary>Manual uninstall (git clone)</summary>
+
+```bash
+cd claude-code-notify
 python3 uninstall.py
 ```
+
+</details>
 
 ## Customization
 
@@ -121,7 +131,7 @@ The installer configures these [Claude Code hooks](https://docs.claude.ai/en/doc
 
 - macOS
 - [Claude Code CLI](https://docs.claude.ai/en/docs/claude-code)
-- Terminal that supports title escape sequences (iTerm2, Ghostty, Terminal.app, etc.)
+- [iTerm2](https://iterm2.com/) (recommended — required for focus clearing and click-to-focus notifications)
 
 ## License
 
