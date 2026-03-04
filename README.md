@@ -18,10 +18,19 @@ Optionally uses [`terminal-notifier`](https://github.com/julienXX/terminal-notif
 ## Installation
 
 ```bash
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notify/main/install.sh)"
+```
+
+<details>
+<summary>Manual installation (git clone)</summary>
+
+```bash
 git clone https://github.com/hatayama/claude-code-notify.git
 cd claude-code-notify
 ./install.sh
 ```
+
+</details>
 
 The installer will:
 1. Copy hook scripts to `~/.claude/hooks/`
@@ -32,10 +41,10 @@ Restart your terminal after installation.
 
 ## Updating
 
+Re-run the install command:
+
 ```bash
-cd claude-code-notify
-git pull
-./install.sh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notify/main/install.sh)"
 ```
 
 ## Uninstall

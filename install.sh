@@ -4,16 +4,23 @@
 # Zero external dependencies (uses python3 and osascript, both macOS built-in)
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
+REPO_RAW="https://raw.githubusercontent.com/hatayama/claude-code-notify/main"
 
 printf '🔔 Claude Code Notify - Installer\n\n'
 
-# --- 1. Copy hook scripts ---
+# --- 1. Install hook scripts ---
 mkdir -p "$HOOKS_DIR"
-cp "$SCRIPT_DIR/hooks/tab-title.sh" "$HOOKS_DIR/tab-title.sh"
-cp "$SCRIPT_DIR/hooks/notify.sh" "$HOOKS_DIR/notify.sh"
+if [ -d "$SCRIPT_DIR/hooks" ]; then
+    cp "$SCRIPT_DIR/hooks/tab-title.sh" "$HOOKS_DIR/tab-title.sh"
+    cp "$SCRIPT_DIR/hooks/notify.sh" "$HOOKS_DIR/notify.sh"
+else
+    printf '  Downloading hook scripts...\n'
+    curl -fsSL "$REPO_RAW/hooks/tab-title.sh" -o "$HOOKS_DIR/tab-title.sh"
+    curl -fsSL "$REPO_RAW/hooks/notify.sh" -o "$HOOKS_DIR/notify.sh"
+fi
 chmod +x "$HOOKS_DIR/tab-title.sh" "$HOOKS_DIR/notify.sh"
 printf '✓ Hook scripts installed to %s\n' "$HOOKS_DIR"
 
@@ -151,4 +158,8 @@ printf '  ❓ Waiting for permission\n\n'
 printf 'To activate, restart your terminal or run:\n'
 printf '  source ~/.zshrc\n\n'
 printf 'To update later:\n'
-printf '  cd %s && git pull && ./install.sh\n' "$SCRIPT_DIR"
+if [ -d "$SCRIPT_DIR/hooks" ]; then
+    printf '  cd %s && git pull && ./install.sh\n' "$SCRIPT_DIR"
+else
+    printf '  sh -c "$(curl -fsSL %s/install.sh)"\n' "$REPO_RAW"
+fi
