@@ -112,6 +112,11 @@ class TestFreshInstall(InstallTestBase):
         content: str = self.zshrc.read_text()
         self.assertIn("CLAUDE_TTY", content)
 
+    def test_adds_uninstall_function_to_zshrc(self) -> None:
+        self.run_install()
+        content: str = self.zshrc.read_text()
+        self.assertIn("uninstall_claude_code_notify", content)
+
     def test_installs_iterm2_script(self) -> None:
         self.run_install()
         script: Path = self.iterm2_autolaunch / "focus_clear_prefix.py"
@@ -143,6 +148,12 @@ class TestIdempotentInstall(InstallTestBase):
         self.run_install()
 
         self.assertEqual(self.count_occurrences(self.zshrc, "CLAUDE_TTY"), 1)
+
+    def test_no_duplicate_uninstall_function(self) -> None:
+        self.run_install()
+        self.run_install()
+
+        self.assertEqual(self.count_occurrences(self.zshrc, "uninstall_claude_code_notify"), 1)
 
 
 class TestExistingHooksPreserved(InstallTestBase):
@@ -197,6 +208,13 @@ class TestUninstall(InstallTestBase):
 
         content: str = self.zshrc.read_text()
         self.assertNotIn("CLAUDE_TTY", content)
+
+    def test_removes_uninstall_function(self) -> None:
+        self.run_install()
+        self.run_uninstall()
+
+        content: str = self.zshrc.read_text()
+        self.assertNotIn("uninstall_claude_code_notify", content)
 
     def test_removes_iterm2_script(self) -> None:
         self.run_install()

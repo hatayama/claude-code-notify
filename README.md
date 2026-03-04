@@ -50,18 +50,8 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notif
 ## Uninstall
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notify/main/uninstall.sh)"
+uninstall_claude_code_notify
 ```
-
-<details>
-<summary>Manual uninstall (git clone)</summary>
-
-```bash
-cd claude-code-notify
-python3 uninstall.py
-```
-
-</details>
 
 ## Customization
 

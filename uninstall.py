@@ -19,6 +19,8 @@ ITERM2_AUTOLAUNCH_DIR: Path = (
 HOOK_FILES: list[str] = ["tab_title.py", "notify.py"]
 ITERM2_SCRIPTS: list[str] = ["focus_clear_prefix.py"]
 
+UNINSTALL_COMMENT: str = "# Claude Code Notify - uninstall command"
+
 COMMAND_PREFIXES: list[str] = [
     "~/.claude/hooks/tab_title.py",
     "~/.claude/hooks/notify.py",
@@ -103,12 +105,42 @@ def remove_claude_tty_from_profile(profile_path: Path) -> None:
     print(f"✓ Removed CLAUDE_TTY from {profile_path}")
 
 
+def remove_uninstall_function(profile_path: Path) -> None:
+    """Remove uninstall_claude_code_notify function from a shell profile."""
+    if not profile_path.exists():
+        return
+
+    content: str = profile_path.read_text()
+    if "uninstall_claude_code_notify" not in content:
+        return
+
+    lines: list[str] = content.splitlines(keepends=True)
+    filtered: list[str] = []
+    inside_func: bool = False
+
+    for line in lines:
+        if UNINSTALL_COMMENT in line:
+            inside_func = True
+            continue
+        if inside_func:
+            if line.rstrip() == "}":
+                inside_func = False
+                continue
+            continue
+        filtered.append(line)
+
+    assert not inside_func, "uninstall function block was not properly closed"
+    profile_path.write_text("".join(filtered))
+    print(f"✓ Removed uninstall_claude_code_notify from {profile_path}")
+
+
 def clean_shell_profiles() -> None:
-    """Remove CLAUDE_TTY from all shell profiles."""
+    """Remove CLAUDE_TTY and uninstall function from all shell profiles."""
     home: Path = Path.home()
     remove_claude_tty_from_profile(home / ".zshrc")
     remove_claude_tty_from_profile(home / ".bashrc")
     remove_claude_tty_from_profile(home / ".bash_profile")
+    remove_uninstall_function(home / ".zshrc")
 
 
 def remove_iterm2_scripts() -> None:
