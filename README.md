@@ -2,7 +2,8 @@
 
 Tab title indicators and desktop notifications for [Claude Code](https://docs.claude.ai/en/docs/claude-code) on macOS.
 
-**Zero external dependencies** — uses only macOS built-in tools (`osascript`, `python3`).
+No hard dependencies — works out of the box with macOS built-in tools (`osascript`, `python3`).
+Optionally uses [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) for click-to-focus support.
 
 ## Features
 
@@ -11,6 +12,7 @@ Tab title indicators and desktop notifications for [Claude Code](https://docs.cl
   - ✅ Complete
   - ❓ Waiting for permission
 - **Desktop notifications** — Get notified when Claude finishes or needs input
+- **Click to focus tab** — Clicking the notification switches to the exact iTerm2 tab (requires `terminal-notifier`)
 - **Event-specific sounds** — Different sounds for completion, permission requests, etc.
 
 ## Installation
@@ -77,7 +79,9 @@ A marker file in `/tmp/claude-iterm2-title-*` stores the current state, which ca
 
 ### Notifications
 
-Uses `osascript` to call macOS Notification Center via `display notification`.
+If [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) is installed (`brew install terminal-notifier`), notifications support click-to-focus: clicking a notification activates iTerm2 and switches to the exact tab that triggered it, using the session UUID from `TERM_SESSION_ID`.
+
+Without `terminal-notifier`, falls back to `osascript` (`display notification`) for basic notifications.
 
 ### Hooks
 
