@@ -2,7 +2,7 @@
 
 Tab title indicators and desktop notifications for [Claude Code](https://docs.claude.ai/en/docs/claude-code) on macOS.
 
-No hard dependencies — works out of the box with macOS built-in tools (`osascript`, `python3`).
+Works out of the box on macOS — no additional installation required (`osascript`, `python3` are pre-installed).
 Optionally uses [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) for click-to-focus support.
 
 ## Features
