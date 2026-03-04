@@ -27,7 +27,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notif
 ```bash
 git clone https://github.com/hatayama/claude-code-notify.git
 cd claude-code-notify
-./install.sh
+python3 install.py
 ```
 
 </details>
@@ -50,8 +50,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notif
 ## Uninstall
 
 ```bash
-cd claude-code-notify
-./uninstall.sh
+python3 uninstall.py
 ```
 
 ## Customization
@@ -73,7 +72,7 @@ Available sounds: `/System/Library/Sounds/`
 Use CLI options in `~/.claude/settings.json` hooks:
 
 ```json
-"command": "~/.claude/hooks/notify.sh --title 'Done!' --sound Glass"
+"command": "~/.claude/hooks/notify.py --title 'Done!' --sound Glass"
 ```
 
 Options: `--title`, `--message`, `--sound`
