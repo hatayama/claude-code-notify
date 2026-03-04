@@ -21,8 +21,12 @@ from pathlib import Path
 
 HOOKS_DIR: Path = Path.home() / ".claude" / "hooks"
 SETTINGS_FILE: Path = Path.home() / ".claude" / "settings.json"
+ITERM2_AUTOLAUNCH_DIR: Path = (
+    Path.home() / "Library" / "Application Support" / "iTerm2" / "Scripts" / "AutoLaunch"
+)
 
 HOOK_FILES: list[str] = ["tab_title.py", "notify.py"]
+ITERM2_SCRIPTS: list[str] = ["focus_clear_prefix.py"]
 
 CLAUDE_TTY_LINE: str = "export CLAUDE_TTY=$(tty)"
 CLAUDE_TTY_COMMENT: str = "# Claude Code Notify - tab title support"
@@ -163,6 +167,27 @@ def setup_shell_profiles() -> None:
         print(f"  {CLAUDE_TTY_LINE}")
 
 
+def install_iterm2_scripts(source_dir: Path) -> bool:
+    """Copy iTerm2 AutoLaunch scripts if iTerm2 Python API is set up."""
+    if not ITERM2_AUTOLAUNCH_DIR.exists():
+        print("⚠ iTerm2 AutoLaunch directory not found — skipping focus-clear script")
+        print("  To enable: iTerm2 > Settings > General > Magic > Enable Python API")
+        print(f"  Then create: {ITERM2_AUTOLAUNCH_DIR}")
+        return False
+
+    iterm2_source: Path = source_dir / "iterm2"
+    for filename in ITERM2_SCRIPTS:
+        src: Path = iterm2_source / filename
+        dst: Path = ITERM2_AUTOLAUNCH_DIR / filename
+        # シンボリックリンクが残っている場合は削除してからコピー
+        if dst.is_symlink():
+            dst.unlink()
+        shutil.copy2(str(src), str(dst))
+
+    print(f"✓ iTerm2 scripts installed to {ITERM2_AUTOLAUNCH_DIR}")
+    return True
+
+
 def print_completion(source_dir: Path) -> None:
     """Print completion message."""
     print()
@@ -192,6 +217,7 @@ def main() -> None:
     install_hook_scripts(source_dir)
     merge_settings()
     setup_shell_profiles()
+    install_iterm2_scripts(source_dir)
     print_completion(source_dir)
 
 

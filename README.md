@@ -85,6 +85,21 @@ Uses ANSI escape sequences (`\033]0;...\007`) to set the terminal tab title. The
 
 A marker file in `/tmp/claude-iterm2-title-*` stores the current state, which can be used by external scripts (e.g., iTerm2 AutoLaunch) to clear the prefix on tab focus.
 
+### Focus Clearing (iTerm2)
+
+On iTerm2, an AutoLaunch script automatically clears tab title prefixes when you switch to a tab:
+
+- **⚡ (processing)** — **not** cleared on focus (stays visible while Claude is working)
+- **✅ (complete)** / **❓ (permission)** — cleared on focus
+
+This requires iTerm2's Python API:
+
+1. iTerm2 > Settings > General > Magic > **Enable Python API**
+2. The installer copies the script to `~/Library/Application Support/iTerm2/Scripts/AutoLaunch/`
+3. Restart iTerm2 (or reload scripts via Scripts menu)
+
+If the AutoLaunch directory doesn't exist, the installer skips this step and prints setup instructions.
+
 ### Notifications
 
 If [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) is installed (`brew install terminal-notifier`), notifications support click-to-focus: clicking a notification activates iTerm2 and switches to the exact tab that triggered it, using the session UUID from `TERM_SESSION_ID`.

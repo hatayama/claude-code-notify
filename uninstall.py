@@ -12,8 +12,12 @@ from pathlib import Path
 
 HOOKS_DIR: Path = Path.home() / ".claude" / "hooks"
 SETTINGS_FILE: Path = Path.home() / ".claude" / "settings.json"
+ITERM2_AUTOLAUNCH_DIR: Path = (
+    Path.home() / "Library" / "Application Support" / "iTerm2" / "Scripts" / "AutoLaunch"
+)
 
 HOOK_FILES: list[str] = ["tab_title.py", "notify.py"]
+ITERM2_SCRIPTS: list[str] = ["focus_clear_prefix.py"]
 
 COMMAND_PREFIXES: list[str] = [
     "~/.claude/hooks/tab_title.py",
@@ -107,6 +111,15 @@ def clean_shell_profiles() -> None:
     remove_claude_tty_from_profile(home / ".bash_profile")
 
 
+def remove_iterm2_scripts() -> None:
+    """Remove iTerm2 AutoLaunch scripts."""
+    for filename in ITERM2_SCRIPTS:
+        script: Path = ITERM2_AUTOLAUNCH_DIR / filename
+        if script.exists(follow_symlinks=False):
+            script.unlink()
+            print(f"✓ Removed {script}")
+
+
 def clean_marker_files() -> None:
     """Remove marker files from /tmp."""
     for marker in glob.glob("/tmp/claude-iterm2-title-*"):
@@ -120,6 +133,7 @@ def main() -> None:
     remove_hook_files()
     clean_settings()
     clean_shell_profiles()
+    remove_iterm2_scripts()
     clean_marker_files()
 
     print("\n🎉 Uninstall complete!")

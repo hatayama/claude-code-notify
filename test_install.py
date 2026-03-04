@@ -25,6 +25,10 @@ class InstallTestBase(unittest.TestCase):
         self.settings_file: Path = self.fake_home / ".claude" / "settings.json"
         self.zshrc: Path = self.fake_home / ".zshrc"
         self.zshrc.touch()
+        self.iterm2_autolaunch: Path = (
+            self.fake_home / "Library" / "Application Support" / "iTerm2" / "Scripts" / "AutoLaunch"
+        )
+        self.iterm2_autolaunch.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -108,6 +112,18 @@ class TestFreshInstall(InstallTestBase):
         content: str = self.zshrc.read_text()
         self.assertIn("CLAUDE_TTY", content)
 
+    def test_installs_iterm2_script(self) -> None:
+        self.run_install()
+        script: Path = self.iterm2_autolaunch / "focus_clear_prefix.py"
+        self.assertTrue(script.exists())
+
+    def test_skips_iterm2_when_dir_missing(self) -> None:
+        self.iterm2_autolaunch.rmdir()
+        self.iterm2_autolaunch.parent.rmdir()
+        result: subprocess.CompletedProcess[str] = self.run_install()
+        self.assertEqual(result.returncode, 0)
+        self.assertFalse((self.iterm2_autolaunch / "focus_clear_prefix.py").exists())
+
 
 class TestIdempotentInstall(InstallTestBase):
     """Test that re-running install.py does not create duplicates."""
@@ -181,6 +197,12 @@ class TestUninstall(InstallTestBase):
 
         content: str = self.zshrc.read_text()
         self.assertNotIn("CLAUDE_TTY", content)
+
+    def test_removes_iterm2_script(self) -> None:
+        self.run_install()
+        self.run_uninstall()
+
+        self.assertFalse((self.iterm2_autolaunch / "focus_clear_prefix.py").exists())
 
     def test_preserves_custom_hooks_after_uninstall(self) -> None:
         self.settings_file.parent.mkdir(parents=True, exist_ok=True)
