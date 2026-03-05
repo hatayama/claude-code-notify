@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: python3 -m unittest test_install -v
+
+      - name: Install
+        run: python3 install.py
+
+      - name: Verify install
+        run: |
+          test -f ~/.claude/hooks/tab_title.py
+          test -f ~/.claude/hooks/notify.py
+          test -x ~/.claude/hooks/tab_title.py
+          test -x ~/.claude/hooks/notify.py
+          python3 -c "
+          import json
+          with open('$HOME/.claude/settings.json') as f:
+              s = json.load(f)
+          assert 'UserPromptSubmit' in s['hooks']
+          assert 'Stop' in s['hooks']
+          assert s['env']['CLAUDE_CODE_DISABLE_TERMINAL_TITLE'] == '1'
+          print('settings.json OK')
+          "
+          grep -q 'CLAUDE_TTY' ~/.zshrc
+
+      - name: Idempotent install
+        run: |
+          python3 install.py
+          count=$(grep -c 'CLAUDE_TTY' ~/.zshrc)
+          test "$count" -eq 1
+
+      - name: Uninstall
+        run: python3 uninstall.py
+
+      - name: Verify uninstall
+        run: |
+          test ! -f ~/.claude/hooks/tab_title.py
+          test ! -f ~/.claude/hooks/notify.py
+          ! grep -q 'tab_title.py' ~/.claude/settings.json
+          ! grep -q 'CLAUDE_TTY' ~/.zshrc
+
+      - name: Idempotent uninstall
+        run: python3 uninstall.py
+
+  test-curl-install:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    steps:
+      - name: Install via curl one-liner
+        run: sh -c "$(curl -fsSL https://raw.githubusercontent.com/hatayama/claude-code-notify/main/install.sh)"
+
+      - name: Verify install
+        run: |
+          test -f ~/.claude/hooks/tab_title.py
+          test -f ~/.claude/hooks/notify.py
+          test -f ~/.claude/settings.json
