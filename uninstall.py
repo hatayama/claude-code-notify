@@ -129,7 +129,10 @@ def remove_uninstall_function(profile_path: Path) -> None:
             continue
         filtered.append(line)
 
-    assert not inside_func, "uninstall function block was not properly closed"
+    if inside_func:
+        raise RuntimeError(
+            f"Malformed uninstall block in {profile_path}: missing closing brace."
+        )
     profile_path.write_text("".join(filtered))
     print(f"✓ Removed uninstall_claude_code_notify from {profile_path}")
 

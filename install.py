@@ -162,7 +162,7 @@ def add_uninstall_function(profile_path: Path) -> None:
         return
 
     content: str = profile_path.read_text()
-    if "uninstall_claude_code_notify" in content:
+    if UNINSTALL_COMMENT in content or "uninstall_claude_code_notify() {" in content:
         return
 
     with open(profile_path, "a") as f:
