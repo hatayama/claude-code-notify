@@ -48,7 +48,9 @@ jobs:
         run: |
           test ! -f ~/.claude/hooks/tab_title.py
           test ! -f ~/.claude/hooks/notify.py
+          test -f ~/.claude/settings.json
           ! grep -q 'tab_title.py' ~/.claude/settings.json
+          test -f ~/.zshrc
           ! grep -q 'CLAUDE_TTY' ~/.zshrc
 
       - name: Idempotent uninstall
