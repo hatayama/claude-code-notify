@@ -31,6 +31,14 @@ ITERM2_SCRIPTS: list[str] = ["focus_clear_prefix.py"]
 CLAUDE_TTY_LINE: str = "export CLAUDE_TTY=$(tty)"
 CLAUDE_TTY_COMMENT: str = "# Claude Code Notify - tab title support"
 
+UNINSTALL_URL: str = "https://raw.githubusercontent.com/hatayama/claude-code-notify/main/uninstall.py"
+UNINSTALL_FUNC: str = (
+    "uninstall_claude_code_notify() {\n"
+    f'  python3 <(curl -fsSL "{UNINSTALL_URL}")\n'
+    "}"
+)
+UNINSTALL_COMMENT: str = "# Claude Code Notify - uninstall command"
+
 HOOKS_CONFIG: dict[str, list[dict]] = {
     "UserPromptSubmit": [
         {
@@ -148,8 +156,22 @@ def add_claude_tty_to_profile(profile_path: Path) -> bool:
     return True
 
 
+def add_uninstall_function(profile_path: Path) -> None:
+    """Add uninstall_claude_code_notify function to a shell profile."""
+    if not profile_path.exists():
+        return
+
+    content: str = profile_path.read_text()
+    if UNINSTALL_COMMENT in content or "uninstall_claude_code_notify() {" in content:
+        return
+
+    with open(profile_path, "a") as f:
+        f.write(f"\n{UNINSTALL_COMMENT}\n{UNINSTALL_FUNC}\n")
+    print(f"✓ Added uninstall_claude_code_notify to {profile_path}")
+
+
 def setup_shell_profiles() -> None:
-    """Add CLAUDE_TTY to shell profiles."""
+    """Add CLAUDE_TTY and uninstall function to shell profiles."""
     home: Path = Path.home()
     added: bool = False
 
@@ -165,6 +187,8 @@ def setup_shell_profiles() -> None:
     if not added:
         print(f"⚠ Could not detect shell profile. Please add manually:")
         print(f"  {CLAUDE_TTY_LINE}")
+
+    add_uninstall_function(home / ".zshrc")
 
 
 def install_iterm2_scripts(source_dir: Path) -> bool:

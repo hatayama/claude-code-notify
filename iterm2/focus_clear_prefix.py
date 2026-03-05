@@ -16,6 +16,7 @@ Behavior:
 """
 import os
 import sys
+import time
 import iterm2
 
 
@@ -59,7 +60,11 @@ async def _get_session_tty(app: iterm2.App) -> str | None:
     session = tab.current_session
     if not session:
         return None
-    tty: str | None = await session.async_get_variable("tty")
+    # セッションが閉じた直後にAPI呼び出しするとRPCExceptionになる
+    try:
+        tty: str | None = await session.async_get_variable("tty")
+    except iterm2.rpc.RPCException:
+        return None
     return tty
 
 
@@ -131,4 +136,23 @@ async def main(connection: iterm2.Connection) -> None:
                 previous_tty = await _get_session_tty(app)
 
 
-iterm2.run_forever(main)
+def run_with_retry() -> None:
+    """iTerm2との接続が切れた場合に自動再起動する。"""
+    MAX_RETRIES: int = 5
+    RETRY_INTERVAL_SEC: int = 3
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            iterm2.run_forever(main)
+        except (OSError, iterm2.rpc.RPCException) as e:
+            print(
+                f"focus_clear_prefix: crashed ({e}), "
+                f"retrying {attempt + 1}/{MAX_RETRIES}",
+                file=sys.stderr,
+            )
+            time.sleep(RETRY_INTERVAL_SEC)
+        else:
+            break
+
+
+run_with_retry()
